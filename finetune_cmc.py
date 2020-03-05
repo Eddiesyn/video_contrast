@@ -164,20 +164,20 @@ def set_model(args):
     return model, classifier
 
 
-def train(epoch, train_loader, model, average, criterion, optimizer, args,
+def train(epoch, train_loader, model, classifier, criterion, optimizer, args,
           epoch_logger, batch_logger):
     # model.eval()
     model.train()
-    # classifier.train()
+    classifier.train()
 
     batch_time = AverageMeter()
     data_time = AverageMeter()
     # ct_losses = AverageMeter()
     # ce_losses = AverageMeter()
     losses = AverageMeter()
-    # top1 = AverageMeter()
-    # top5 = AverageMeter()
-    probs = AverageMeter()
+    top1 = AverageMeter()
+    top5 = AverageMeter()
+    # probs = AverageMeter()
 
     end = time.time()
     # average.prepare_indices(args.bat)
@@ -197,23 +197,23 @@ def train(epoch, train_loader, model, average, criterion, optimizer, args,
         #     avg_f = avg_f.detach()
         avg_f, _, f = model(input)
 
-        # output = classifier(avg_f)
+        output = classifier(avg_f)
         # output = model(input)
         # loss = criterion(output, target)
-        out, prob = average(f, idxs)
-        uprob = out[:, 0].mean().detach().item()
-        loss = criterion['contrastive'](out)
-        # ce_loss = criterion['cross_entropy'](output, target)
+        # out, prob = average(f, idxs)
+        # uprob = out[:, 0].mean().detach().item()
+        # loss = criterion['contrastive'](out)
+        loss = criterion['cross_entropy'](output, target)
         # loss = contrastive_loss + ce_loss
 
-        # acc1, acc5 = calculate_accuracy(output.detach(), target.detach(), topk=(1, 5))
+        acc1, acc5 = calculate_accuracy(output.detach(), target.detach(), topk=(1, 5))
 
         # ct_losses.update(ct_loss.item(), bs)
         # ce_losses.update(ce_loss.item(), bs)
         losses.update(loss.item(), bs)
-        # top1.update(acc1.item(), bs)
-        # top5.update(acc5.item(), bs)
-        probs.update(prob.item(), bs)
+        top1.update(acc1.item(), bs)
+        top5.update(acc5.item(), bs)
+        # probs.update(prob.item(), bs)
 
         optimizer.zero_grad()
         loss.backward()
@@ -227,43 +227,46 @@ def train(epoch, train_loader, model, average, criterion, optimizer, args,
             'batch': idx + 1,
             'iter': (epoch-1) * len(train_loader) + i+1,
             # 'contrastive': ct_losses.val,
-            # 'crossentropy': ce_losses.val,
-            'prob': probs.val,
-            'contrastive': losses.val,
-            # 'prec1': top1.val,
-            # 'prec5': top5.val,
+            'crossentropy': losses.val,
+            # 'prob': probs.val,
+            # 'contrastive': losses.val,
+            'prec1': top1.val,
+            'prec5': top5.val,
             # 'backbone_lr': optimizer.param_groups[0]['lr'],
             # 'fc_lr': optimizer.param_groups[1]['lr'],
             'lr': optimizer.param_groups[0]['lr']
         })
         if idx % args.print_freq == 0:
-            print('Epoch: [{0}][{1}/{2}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  'Contrastive {Contrastive.val:.4f} ({Contrastive.avg:.4f}) / {3}'.format(
+            print('Epoch: [{0}][{1}/{2}]  '
+                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})  '
+                  'Data {data_time.val:.3f} ({data_time.avg:.3f})  '
+                  'Crossentropy {Crossentropy.val:.4f} ({Crossentropy.avg:.4f})  '
+                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})  '
+                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
                       epoch,
                       idx,
                       len(train_loader),
-                      uprob,
                       batch_time=batch_time,
                       data_time=data_time,
-                      Contrastive=losses))
+                      Crossentropy=losses,
+                      top1=top1,
+                      top5=top5))
 
     epoch_logger.log({
         'epoch': epoch,
-        'contrastive': losses.avg,
-        # 'crossentropy': ce_losses.avg,
-        'prob': probs.avg,
+        # 'contrastive': losses.avg,
+        'crossentropy': losses.avg,
+        # 'prob': probs.avg,
         # 'loss': losses.avg,
-        # 'prec1': top1.avg,
-        # 'prec5': top5.avg,
+        'prec1': top1.avg,
+        'prec5': top5.avg,
         # 'backbone_lr': optimizer.param_groups[0]['lr'],
         # 'fc_lr': optimizer.param_groups[1]['lr'],
         # 'fc_lr': optimizer.param_groups[0]['lr']
         'lr': optimizer.param_groups[0]['lr']
     })
 
-    return losses.avg
+    return top1.avg, top5.avg, losses.avg
 
 
 def validate(epoch, val_loader, model, classifier, criterion, args, logger):
@@ -282,8 +285,8 @@ def validate(epoch, val_loader, model, classifier, criterion, args, logger):
             input = input.cuda()
             target = target.cuda()
 
-            features, _, _ = model(input)
-            output = classifier(features)
+            avg_f, _, _ = model(input)
+            output = classifier(avg_f)
             # output = model(input)
             loss = criterion['cross_entropy'](output, target)
 
@@ -313,7 +316,7 @@ def validate(epoch, val_loader, model, classifier, criterion, args, logger):
 
     logger.log({
         'epoch': epoch,
-        'loss': losses.avg,
+        'crossentropy': losses.avg,
         'prec1': top1.avg,
         'prec5': top5.avg,
         # 'backbone_lr': optimizer.param_groups[0]['lr'],
@@ -341,8 +344,8 @@ if __name__ == '__main__':
     torch.manual_seed(args.manual_seed)
 
     print('\n==> Building Model...')
-    # model, classifier = set_model(args)
-    model, _ = generate_model(args)
+    model, classifier = set_model(args)
+    # model, _ = generate_model(args)
 #     backbone, _ = generate_model(args)
     # model = AssembleModel(args, backbone)
 
@@ -389,20 +392,20 @@ if __name__ == '__main__':
     temporal_transform = TemporalRandomCrop(args.sample_duration, args.downsample)
     target_transform = ClassLabel()
     training_data = get_training_set(args, spatial_transform, temporal_transform, target_transform)
-    batchsampler = ContrastiveSampler(training_data.lookup, args.class_num, args.sample_num, len(training_data))
-    train_loader = torch.utils.data.DataLoader(
-        training_data,
-        batch_sampler=batchsampler,
-        num_workers=args.n_threads,
-        pin_memory=True,
-    )
+    # batchsampler = ContrastiveSampler(training_data.lookup, args.class_num, args.sample_num, len(training_data))
     # train_loader = torch.utils.data.DataLoader(
     #     training_data,
-    #     batch_size=args.batch_size,
-    #     shuffle=True,
+    #     batch_sampler=batchsampler,
     #     num_workers=args.n_threads,
-    #     pin_memory=True
+    #     pin_memory=True,
     # )
+    train_loader = torch.utils.data.DataLoader(
+        training_data,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=args.n_threads,
+        pin_memory=True
+    )
     if not args.no_val:
         print('\nValidation set')
         spatial_transform = Compose([
@@ -430,14 +433,14 @@ if __name__ == '__main__':
             pin_memory=True
         )
 
-    ndata = len(training_data)
-    average = NCEAverage.Average(args.low_dim, ndata, args.sample_num,
-                                 args.class_num, args.nce_t).cuda()
-    criterion_ct = NCECriterion.NCECriterion(ndata).cuda()
-    # criterion_ce = nn.CrossEntropyLoss().cuda()
+    # ndata = len(training_data)
+    # average = NCEAverage.Average(args.low_dim, ndata, args.sample_num,
+    #                              args.class_num, args.nce_t).cuda()
+    # criterion_ct = NCECriterion.NCECriterion(ndata).cuda()
+    criterion_ce = nn.CrossEntropyLoss().cuda()
     criterion = {}
-    criterion['contrastive'] = criterion_ct
-    # criterion['cross_entropy'] = criterion_ce
+    # criterion['contrastive'] = criterion_ct
+    criterion['cross_entropy'] = criterion_ce
     # optimizer = torch.optim.Adam(
     #     [{'params': model.parameters(), 'lr': args.learning_rate / 10, 'weight_decay': args.weight_decay},
     #      {'params': classifier.parameters(), 'lr': args.learning_rate, 'weight_decay': 1e-3}])
@@ -445,7 +448,7 @@ if __name__ == '__main__':
     #     dampening = 0
     # else:
     #     dampening = args.dampening
-    optimizer = torch.optim.SGD(model.parameters(),
+    optimizer = torch.optim.SGD(list(model.parameters()) + list(classifier.parameters()),
                                 lr=args.learning_rate,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay,
@@ -455,7 +458,7 @@ if __name__ == '__main__':
     if args.resume_path is not None:
         resume_ckpt = torch.load(args.resume_path)
         model.load_state_dict(resume_ckpt['state_dict'])
-        # model.load_state_dict(resume_ckpt['model'])
+        classifier.load_state_dict(resume_ckpt['classifier'])
         args.begin_epoch = resume_ckpt['epoch'] + 1
         best_acc = resume_ckpt['best_acc']
         optimizer.load_state_dict(resume_ckpt['optimizer'])
@@ -465,7 +468,7 @@ if __name__ == '__main__':
         del resume_ckpt
         torch.cuda.empty_cache()
         # adjust_learning_rate(optimizer, 1, 0.0001)
-        set_lr(optimizer, 0.01)
+        set_lr(optimizer, 0.001)
         resume = True
     else:
         print('==> Train from sratch...')
@@ -478,27 +481,27 @@ if __name__ == '__main__':
         except:
             print('=> [Warning]: weight structure is not equal to test model; Use non-equal load ==')
             model = neq_load_customized(model, ckpt['state_dict'])
-        average.load_state_dict(ckpt['average'])
+        # average.load_state_dict(ckpt['average'])
         print('==> loaded checkpoint {} (epoch {})'.format(args.pretrain_path, ckpt['epoch']))
-        print('==> [NCE]: params Z {}'.format(average.params[0].item()))
+        # print('==> [NCE]: params Z {}'.format(average.params[0].item()))
         print('==> done')
         del ckpt
         torch.cuda.empty_cache()
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
-                                                           mode='min',
+                                                           mode='max',
                                                            patience=args.lr_patience,
                                                            verbose=True,
                                                            threshold=0.1,
                                                            threshold_mode='abs')
     train_batch_logger = Logger(os.path.join(args.result_path, 'train_batch.log'),
-                          ['epoch', 'batch', 'iter', 'prob', 'contrastive', 'lr'], resume)
+                          ['epoch', 'batch', 'iter', 'crossentropy', 'prec1', 'prec5', 'lr'], resume)
     train_logger = Logger(os.path.join(args.result_path, 'train.log'),
-                                ['epoch', 'contrastive', 'prob', 'lr'], resume)
+                                ['epoch', 'crossentropy', 'prec1', 'prec5', 'lr'], resume)
 
     if not args.no_val:
         val_logger = Logger(os.path.join(args.result_path, 'val.log'),
-                            ['epoch', 'loss', 'prec1', 'prec5'], resume)
+                            ['epoch', 'crossentropy', 'prec1', 'prec5'], resume)
 
     print('\nrun')
     for epoch in range(args.begin_epoch, args.n_epochs):
@@ -506,13 +509,20 @@ if __name__ == '__main__':
         # if epoch == 50:
         #     print('==> Decay lr by 0.1 after 50 epochs...')
         #     adjust_learning_rate(optimizer, 0.01, 0.001)
-        train_loss = train(epoch, train_loader, model, average, criterion,
+        train_acc1, train_acc5, train_loss = train(epoch, train_loader, model, classifier, criterion,
                                                    optimizer, args, train_logger, train_batch_logger)
-        scheduler.step(train_loss)
-        if not args.no_val and epoch % args.test_freq == 1:
+        # scheduler.step(train_loss)
+        if not args.no_val and epoch % args.test_freq == 0:
             print('\nValidation...')
-        # val_acc1, val_acc5, val_loss = validate(epoch, val_loader, model, classifier, criterion, args, val_logger)
-            val_acc1, val_acc5 = kNN(args, args.n_classes, model, average, train_loader, val_loader, 200, 0)
+            val_acc1, val_acc5, val_loss = validate(epoch, val_loader, model, classifier, criterion, args, val_logger)
+            scheduler.step(val_acc1)
+            val_logger.log({
+                'epoch': epoch,
+                'crossentropy': val_loss,
+                'prec1': val_acc1,
+                'prec5': val_acc5
+            })
+        #     val_acc1, val_acc5 = kNN(args, args.n_classes, model, average, train_loader, val_loader, 200, 0)
         # scheduler.step(val_acc1)
             if val_acc1 > best_acc:
                 best_acc = val_acc1
@@ -522,8 +532,7 @@ if __name__ == '__main__':
                     'state_dict': model.state_dict(),
                     'best_acc': best_acc,
                     'optimizer': optimizer.state_dict(),
-                    'model': model.state_dict(),
-                    # 'classifier': classifier.state_dict(),
+                    'classifier': classifier.state_dict(),
                 }
                 save_name = os.path.join(args.result_path, 'best.pth')
                 torch.save(state, save_name)
