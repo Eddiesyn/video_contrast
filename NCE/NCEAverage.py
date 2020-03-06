@@ -325,7 +325,7 @@ class Average(nn.Module):
             pos_temp = indices_temp[i // self.sample_num].copy()
             pos_temp.remove(i)
             neg_temp = indices_temp.copy()
-            neg_temp.pop(i % self.class_num)
+            neg_temp.pop(i // self.sample_num)
 
             self.pos_indices[i, :] = torch.tensor(pos_temp).cuda()  # (sample_num-1, )
             # ((class_num-1)*sample_num, )

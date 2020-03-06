@@ -40,7 +40,7 @@ class KLCriterion(nn.Module):
     def forward(self, x, pos_indices):
         bsz = x.size(0)
         assert bsz == pos_indices.size(0), 'FATAL ERROR!'
-        batchSize = bsz // self.clips_num
+        # batchSize = bsz // self.clips_num
 
         x_other = x[pos_indices]  # (bsz, clips_num-1, x.size(1))
         x_other = torch.mean(x_other, dim=1)  # same shape as x
