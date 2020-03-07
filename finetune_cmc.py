@@ -9,6 +9,7 @@ import json
 import pdb
 import itertools
 import torchvision.transforms as transforms
+import sys
 
 from utils import AverageMeter, Logger, calculate_accuracy, ContrastiveSampler
 from mean import get_mean, get_std
@@ -467,6 +468,14 @@ if __name__ == '__main__':
                                 nesterov=args.nesterov)
 
     cudnn.benchmark = True
+    if args.trained_model is not None and not args.no_val:
+        trained_ckpt = torch.load(args.trained_model)
+        model.load_state_dict(trained_ckpt['state_dict'])
+        average.load_state_dict(trained_ckpt['average'])
+
+        val_acc1, val_acc5 = kNN(args, args.n_classes, model, average, train_loader, val_loader, 200, 0)
+        sys.exit()
+
     if args.resume_path is not None:
         resume_ckpt = torch.load(args.resume_path)
         model.load_state_dict(resume_ckpt['state_dict'])
