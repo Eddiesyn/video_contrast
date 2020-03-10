@@ -4,5 +4,6 @@
 __pycache__
 *.ipynb
 .vscode/
+models/__pycache__/
 
 results/
