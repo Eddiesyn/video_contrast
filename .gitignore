@@ -3,5 +3,6 @@
 .vim/
 __pycache__
 *.ipynb
+.vscode/
 
 results/
