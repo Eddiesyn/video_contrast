@@ -205,38 +205,37 @@ class UCF101(data.Dataset):
 
             return clip, target, index
         else:
-            if self.temporal_transform is not None:
-                total_frames = self.temporal_transform(frame_indices)
-            clips = []
-            # print(total_frames)
-            for frames in total_frames:
-                # pdb.set_trace()
-                clip = self.loader(path, frames)
-                # print(clip)
-                if self.spatial_transform is not None:
-                    self.spatial_transform.randomize_parameters()
-                    clip = [self.spatial_transform(img) for img in clip]
-                    clip = torch.stack(clip, 0).permute(1, 0, 2, 3)
-                clips.append(clip)
-            target = self.data[index]
-            if self.target_transform is not None:
-                target = self.target_transform(target)
-
-            return clips, target, index
+            '''used for cmc-training'''
             # if self.temporal_transform is not None:
-            #     frame_indices = self.temporal_transform(frame_indices)
-            # clip = self.loader(path, frame_indices)
-            # pdb.set_trace()
-            # if self.spatial_transform is not None:
-            #     self.spatial_transform.randomize_parameters()
-            #     clip = [self.spatial_transform(img) for img in clip]
-            # clip = torch.stack(clip, 0).permute(1, 0, 2, 3)
-
+            #     total_frames = self.temporal_transform(frame_indices)
+            # clips = []
+            # for frames in total_frames:
+            #     clip = self.loader(path, frames)
+            #     if self.spatial_transform is not None:
+            #         self.spatial_transform.randomize_parameters()
+            #         clip = [self.spatial_transform(img) for img in clip]
+            #         clip = torch.stack(clip, 0).permute(1, 0, 2, 3)
+            #     clips.append(clip)
             # target = self.data[index]
             # if self.target_transform is not None:
             #     target = self.target_transform(target)
 
-            # return clip, target, index
+            # return clips, target, index
+            
+            '''used for fine-tuning'''
+            if self.temporal_transform is not None:
+                frame_indices = self.temporal_transform(frame_indices)
+            clip = self.loader(path, frame_indices)
+            if self.spatial_transform is not None:
+                self.spatial_transform.randomize_parameters()
+                clip = [self.spatial_transform(img) for img in clip]
+            clip = torch.stack(clip, 0).permute(1, 0, 2, 3)
+
+            target = self.data[index]
+            if self.target_transform is not None:
+                target = self.target_transform(target)
+
+            return clip, target, index
 
     def __len__(self):
         return len(self.data)
