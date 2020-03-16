@@ -145,12 +145,12 @@ class ResNet(nn.Module):
         last_size = int(math.ceil(sample_size / 32))
         self.avgpool = nn.AvgPool3d(
             (last_duration, last_size, last_size), stride=1)
-        self.fc1    = nn.Linear(512 * block.expansion, 512)
+        # self.fc1    = nn.Linear(512 * block.expansion, 512)
         # self.fc1_bn = nn.BatchNorm1d(512)
         # self.fc2    = nn.Linear(512, 128)
         # self.fc1 = nn.Linear(512 * block.expansion, 512)
-        self.fc2 = nn.Linear(512, low_dim)
-        # self.fc = nn.Linear(512 * block.expansion, low_dim)
+        # self.fc2 = nn.Linear(512, low_dim)
+        self.fc = nn.Linear(512 * block.expansion, low_dim)
 
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
@@ -199,14 +199,14 @@ class ResNet(nn.Module):
         x = self.avgpool(x)
         # print(x.shape)
 
-        avg_x = x.view(x.size(0), -1)
-        x_fc1 = self.fc1(avg_x)
-        unormed_x = self.fc2(self.relu(x_fc1))
-        # unormed_x = self.fc(avg_x)
+        # avg_x = x.view(x.size(0), -1)
+        # x_fc1 = self.relu(self.fc1(avg_x))
+        # unormed_x = self.fc2(x_fc1)
+        unormed_x = self.fc(avg_x)
 
-        x = F.normalize(unormed_x, p=2, dim=1)
+        # x = F.normalize(unormed_x, p=2, dim=1)
 
-        return avg_x, unormed_x, x
+        return avg_x, unormed_x
 
 
 def get_fine_tuning_parameters(model, ft_portion):
