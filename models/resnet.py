@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
+
 import math
 from functools import partial
 
@@ -27,7 +27,7 @@ def downsample_basic_block(x, planes, stride):
     # zero_pads = torch.Tensor(
     #     out.size(0), planes - out.size(1), out.size(2), out.size(3),
     #     out.size(4)).zero_()
-    zero_pads = torch.zeros(out.size(0), planes-out.size(1), out.size(2), out.size(3), out.size(4))
+    zero_pads = torch.zeros(out.size(0), planes - out.size(1), out.size(2), out.size(3), out.size(4))
     # if isinstance(out.data, torch.cuda.FloatTensor):
     #     zero_pads = zero_pads.cuda()
     if out.is_cuda:

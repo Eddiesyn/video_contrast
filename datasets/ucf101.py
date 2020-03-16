@@ -205,53 +205,45 @@ class UCF101(data.Dataset):
 
             return clip, target, index
         else:
+            if self.temporal_transform is not None:
+                total_frames = self.temporal_transform(frame_indices)
+            clips = []
+            # print(total_frames)
+            for frames in total_frames:
+                # pdb.set_trace()
+                clip = self.loader(path, frames)
+                # print(clip)
+                if self.spatial_transform is not None:
+                    self.spatial_transform.randomize_parameters()
+                    clip = [self.spatial_transform(img) for img in clip]
+                    clip = torch.stack(clip, 0).permute(1, 0, 2, 3)
+                clips.append(clip)
+            target = self.data[index]
+            if self.target_transform is not None:
+                target = self.target_transform(target)
+
+            return clips, target, index
             # if self.temporal_transform is not None:
-            #     total_frames = self.temporal_transform(frame_indices)
-            # clips = []
-            # for frames in total_frames:
-            #     clip = self.loader(path, frames)
-            #     if self.spatial_transform is not None:
-            #         self.spatial_transform.randomize_parameters()
-            #         clip = [self.spatial_transform(img) for img in clip]
-            #         clip = torch.stack(clip, 0).permute(1, 0, 2, 3)
-            #     clips.append(clip)
-            #         # imgs = []
-            #         # for cp in clip:
-            #         #     self.spatial_transform.randomize_parameters()
-            #         #     cp = self.spatial_transform(cp)
-            #         #     imgs.append(cp)
-            #         # clip = torch.stack(imgs, 0).permute(1, 0, 2, 3)
-            #
-            #         # clip = self.spatial_transform(clip)
-            #         # clip = torch.stack(clip, 0).permute(1, 0, 2, 3)
-            #         # clips.append(clip)
+            #     frame_indices = self.temporal_transform(frame_indices)
+            # clip = self.loader(path, frame_indices)
+            # pdb.set_trace()
+            # if self.spatial_transform is not None:
+            #     self.spatial_transform.randomize_parameters()
+            #     clip = [self.spatial_transform(img) for img in clip]
+            # clip = torch.stack(clip, 0).permute(1, 0, 2, 3)
+
             # target = self.data[index]
             # if self.target_transform is not None:
             #     target = self.target_transform(target)
-            #
-            # return clips, target, index
-            if self.temporal_transform is not None:
-               frame_indices = self.temporal_transform(frame_indices)
-            clip = self.loader(path, frame_indices)
-            if self.spatial_transform is not None:
-               self.spatial_transform.randomize_parameters()
-               clip = [self.spatial_transform(img) for img in clip]
-                # clip = self.spatial_transform(clip)
-            clip = torch.stack(clip, 0).permute(1, 0, 2, 3)
 
-            target = self.data[index]
-            if self.target_transform is not None:
-               target = self.target_transform(target)
-
-            return clip, target, index
+            # return clip, target, index
 
     def __len__(self):
         return len(self.data)
 
 
 if __name__ == '__main__':
-    data, class_names, lookup = make_dataset('/data1/UCF-101_img', '/usr/home/sut/datasets/UCF/ucf101_01.json',
-                                     'training', 1, 16)
+    data, class_names, lookup = make_dataset('/data1/UCF-101_img', '/usr/home/sut/datasets/UCF/ucf101_01.json', 'training', 1, 16)
     sampler = ContrastiveSampler(lookup, 8, 2, len(data))
     # for i, val in enumerate(sampler):
     #     pdb.set_trace()

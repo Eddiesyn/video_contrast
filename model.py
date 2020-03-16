@@ -8,7 +8,6 @@ def generate_model(opt):
     assert opt.model in ['c3d', 'squeezenet', 'mobilenet', 'resnext', 'resnet',
                          'shufflenet', 'mobilenetv2', 'shufflenetv2']
 
-
     if opt.model == 'c3d':
         from models.c3d import get_fine_tuning_parameters
         model = c3d.get_model(
@@ -122,12 +121,10 @@ def generate_model(opt):
                 sample_duration=opt.sample_duration)
 
 
-
     if not opt.no_cuda:
         model = model.cuda()
         model = nn.DataParallel(model, device_ids=None)
-        pytorch_total_params = sum(p.numel() for p in model.parameters() if
-                               p.requires_grad)
+        pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print("Total number of trainable parameters: ", pytorch_total_params)
 
         # if opt.pretrain_path:

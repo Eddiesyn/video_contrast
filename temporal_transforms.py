@@ -260,12 +260,60 @@ class TemporalRandomMultipleCrop(object):
         return total_frames
 
 
+class TemporalSequentialCrop(object):
+    """Crop out a list of clips which cover the whole video"""
+    def __init__(self, size, downsample, number_clips=4):
+        self.size = size
+        self.downsample = downsample
+        self.number_clips = number_clips
+        self.clip_duration = self.size * self.downsample
+
+    def _randomCrop(self, snippet):
+        """random crop out a sublist from snippet (a list)"""
+        rand_end = max(0, len(snippet) - self.clip_duration)
+        begin_index = random.randint(0, rand_end)
+
+        return snippet[begin_index:begin_index + self.clip_duration]
+
+    def __call__(self, frame_indices):
+        vid_duration = len(frame_indices)
+
+        clips = []
+        if vid_duration >= self.clip_duration * self.number_clips:
+            snippet_interval = vid_duration // self.number_clips
+            break_pts = [i * snippet_interval for i in range(self.number_clips)]
+            for pt in break_pts:
+                clips.append(self._randomCrop(frame_indices[pt:min(pt + self.clip_duration, vid_duration)]))
+        else:
+            snippet_num = vid_duration // self.clip_duration
+            break_pts = [i * self.clip_duration for i in range(snippet_num)]
+            for i, pt in enumerate(break_pts):
+                if i == snippet_num - 1:
+                    clip = frame_indices[pt:]
+                    clips.append(self._randomCrop(clip))
+                else:
+                    clips.append(frame_indices[pt:pt + self.clip_duration])
+            for i in range(len(clips), self.number_clips):
+                clips.append(self._randomCrop(frame_indices))
+
+        assert len(clips) == self.number_clips, 'Fatal Error!'
+
+        total_frames = []
+        for clip in clips:
+            frames = [clip[i] for i in range(0, self.clip_duration, self.downsample)]
+            total_frames.append(frames)
+
+        return total_frames
+
+
 if __name__ == '__main__':
     # temporal_transform = TemporalSelectCrop(16, 1, number_clips=6, clip_interval=20)
     # temporal_transform = TemporalBeginEndCrop(16, 1)
-    temporal_transform = TemporalRandomMultipleCrop(16, 1)
+    # temporal_transform = TemporalRandomMultipleCrop(16, 1)
+    temporal_transform = TemporalSequentialCrop(16, 1, number_clips=8)
+
     # use a dummy frame indices (25 FPS for 10s video)
-    frame_indices = list(range(25))
+    frame_indices = list(range(60))
     total_frames = temporal_transform(frame_indices)
     print('Has {} frames in total'.format(len(total_frames)))
 

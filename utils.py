@@ -28,27 +28,6 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-# class Logger(object):
-#
-#     def __init__(self, path, header):
-#         self.log_file = open(path, 'w')
-#         self.logger = csv.writer(self.log_file, delimiter='\t')
-#
-#         self.logger.writerow(header)
-#         self.header = header
-#
-#     def __del(self):
-#         self.log_file.close()
-#
-#     def log(self, values):
-#         write_values = []
-#         for col in self.header:
-#             assert col in values
-#             write_values.append(values[col])
-#
-#         self.logger.writerow(write_values)
-#         self.log_file.flush()
-
 class Logger(object):
     """Logger object for training process, supporting resume training"""
     def __init__(self, path, header, resume=False):
@@ -113,7 +92,7 @@ def calculate_accuracy(output, target, topk=(1,)):
 def save_checkpoint(state, is_best, opt):
     torch.save(state, '%s/%s_checkpoint.pth' % (opt.result_path, opt.store_name))
     if is_best:
-        shutil.copyfile('%s/%s_checkpoint.pth' % (opt.result_path, opt.store_name),'%s/%s_best.pth' % (opt.result_path, opt.store_name))
+        shutil.copyfile('%s/%s_checkpoint.pth' % (opt.result_path, opt.store_name), '%s/%s_best.pth' % (opt.result_path, opt.store_name))
 
 
 def adjust_learning_rate(optimizer, epoch, opt):
@@ -121,21 +100,13 @@ def adjust_learning_rate(optimizer, epoch, opt):
     lr_new = opt.learning_rate * (0.1 ** (sum(epoch >= np.array(opt.lr_steps))))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr_new
-        #param_group['lr'] = opt.learning_rate
 
 
 def pdist_torch(embeddings):
     '''
-    compute the eucilidean distance matrix between embeddings1 and embeddings2
-    using gpu
+    compute the eucilidean distance matrix between different embeddings
+    --embeddings: size (n, d) features
     '''
-#    m, n = emb1.shape[0], emb2.shape[0]
-#    emb1_pow = torch.pow(emb1, 2).sum(dim = 1, keepdim = True).expand(m, n)
-#    emb2_pow = torch.pow(emb2, 2).sum(dim = 1, keepdim = True).expand(n, m).t()
-#    dist_mtx = emb1_pow + emb2_pow
-#    dist_mtx = dist_mtx.addmm_(1, -2, emb1, emb2.t())
-#    dist_mtx = dist_mtx.clamp(min = 1e-12).sqrt()
-#    return dist_mtx
     n = embeddings.size(0)
     dist = torch.pow(embeddings, 2).sum(dim=1, keepdim=True).expand(n, n)
     dist = dist + dist.t()
@@ -144,25 +115,12 @@ def pdist_torch(embeddings):
 
     return dist
 
-def pdist_np(emb1, emb2):
-    '''
-    compute the eucilidean distance matrix between embeddings1 and embeddings2
-    using cpu
-    '''
-    m, n = emb1.shape[0], emb2.shape[0]
-    emb1_pow = np.square(emb1).sum(axis = 1)[..., np.newaxis]
-    emb2_pow = np.square(emb2).sum(axis = 1)[np.newaxis, ...]
-    dist_mtx = -2 * np.matmul(emb1, emb2.T) + emb1_pow + emb2_pow
-    dist_mtx = np.sqrt(dist_mtx.clip(min = 1e-12))
-
-    return dist_mtx
-
 
 def pearson_coefficient(embedding):
     '''
     calculate pearson coefficient between different samples' embeddings
-    input embedding: shape (n_samples, n_features)
-    result matrix: shape (n_samples, n_samples)
+    --input embedding: shape (n_samples, n_features)
+    --result matrix: shape (n_samples, n_samples)
     '''
     mean_x = torch.mean(embedding, 1)
     xm = embedding - mean_x.unsqueeze(0).t()
@@ -173,17 +131,16 @@ def pearson_coefficient(embedding):
     stddev = torch.pow(d, 0.5)
     c = c.div(stddev.expand_as(c))
     c = c.div(stddev.expand_as(c).t())
-
-    # c = torch.clamp(c, -1.0, 1.0)
     c = torch.clamp(c, 0.0, 1.0)
 
-    # according to original paper, w(i,i) is set to 0
+    # based on paper "Group loss for deep metric learning", dignonal entries are set to 0
     c.fill_diagonal_(0.)
 
     return c
 
 
 def pearson_coefficient_bank(embedding, memory_bank):
+    """calculate pearson correlation between embeddings and correspondings in memory bank"""
     e_c = embedding - torch.mean(embedding, dim=1, keepdim=True)
     m_c = memory_bank - torch.mean(memory_bank, dim=1, keepdim=True)
 
@@ -272,7 +229,7 @@ class ContrastiveSampler(Sampler):
             indices = []
             for class_ in classes:
                 indices.extend(self.lookup[class_][self.used_label_indices_count[class_]:
-                                                   self.used_label_indices_count[class_]+self.n_samples])
+                                                   self.used_label_indices_count[class_] + self.n_samples])
                 self.used_label_indices_count[class_] += self.n_samples
                 if self.used_label_indices_count[class_] + self.n_samples > len(self.lookup[class_]):
                     random.shuffle(self.lookup[class_])
@@ -282,3 +239,9 @@ class ContrastiveSampler(Sampler):
 
     def __len__(self):
         return self.n_dataset // self.batchsize
+
+
+def set_lr(optimizer, lr_rate):
+    """set a new learning rate, used in resume training with new learning rate"""
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr_rate
